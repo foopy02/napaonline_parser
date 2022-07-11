@@ -15,12 +15,12 @@ import undetected_chromedriver as uc
 from fake_useragent import UserAgent
 from selenium.webdriver import ActionChains
 from functions import *
-
+import os
 BASE_URL = "https://www.napaonline.com"
 
 def main():
     options = Options()
-    driver = uc.Chrome(driver_executable_path="C://Users//Адиль//Desktop//parser_job//chromedriver", options=options)
+    driver = uc.Chrome(driver_executable_path=f"{os.path.dirname(__file__)}/chromedriver", options=options)
 
     # Adding pause to not get the WebDriverException
     time.sleep(2)
@@ -75,13 +75,13 @@ def select_auto(year, make, model, driver):
     time.sleep(1)
     find_and_press_selection(element_id="vehicleModel-selector",data_value=model, driver=driver)
     time.sleep(1)
-    submit_btn = driver.find_element_by_class_name("geo-add-cancel-vehiclediv").find_element_by_tag_name("button")
+    submit_btn = driver.find_element(By.CLASS_NAME, "geo-add-cancel-vehiclediv").find_element(By.TAG_NAME, "button")
     submit_btn.click()
 
 def find_and_press_selection(element_id, data_value, driver):
-    select_of = driver.find_element_by_id(element_id).find_element_by_tag_name("div")
+    select_of = driver.find_element(By.ID, element_id).find_element(By.TAG_NAME,"div")
     select_of.click()
-    selection_of_concrete = driver.find_element_by_xpath(f"//*[@data-value='{data_value}']")
+    selection_of_concrete = driver.find_element(By.XPATH, f"//*[@data-value='{data_value}']")
     selection_of_concrete.click()
 
 def get_main_url(driver):
@@ -93,11 +93,11 @@ def get_main_url(driver):
     #Finding button that add vehicle
     while True:
         try:
-            add_new_vehicle_btn = driver.find_element_by_id("add-vehicle")
+            add_new_vehicle_btn = driver.find_element(By.ID,"add-vehicle")
             add_new_vehicle_btn.click()
             break
-        except:
-            print("Can't find add-vehicle button")
+        except Exception as e:
+            print("Can't find add-vehicle button", e)
             time.sleep(3)
             continue
         
