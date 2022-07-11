@@ -41,27 +41,37 @@ def get_concrete_categories_links(content):
             time.sleep(delay_time_in_s)
 
 
-def parse_all_items_of_category(content, driver):
-    soup = BeautifulSoup(content, "html.parser")
-    url = soup.find("meta", property="og:url").get("content").split("?")[0]
-    try:
-        pages_number = round(int(soup.find("geo-pagination-links").get("item-count")) / 24)
-        if pages_number == 0:
-            pages_number = 1
-    except:
-        pages_number = 1
-        
+def parse_all_items_of_category(driver):
+    time.sleep(delay_time_in_s)
+    check_engine = None
     while True:
         try:
-            soup = BeautifulSoup(content,"html.parser")
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            pages_number = round(int(soup.find("geo-pagination-links").get("item-count")) / 24)
+            if pages_number == 0:
+                pages_number = 1
+            break
+        except Exception as e:
+            print("Can't get pages number", e)
+            pages_number = 1
+            time.sleep(delay_time_in_s)
+            continue
+    while True:
+        try:
+            soup = BeautifulSoup(driver.page_source,"html.parser")
+            url = soup.find("meta", property="og:url").get("content").split("?")[0]
             _get_part_price(soup)
             print("Page is ready!")
             break # it will break from the loop once the specific element will be present. 
         except Exception as e:
+            check_engine = soup.find("a",{"class":"know-blog-btn"})
+            if  check_engine is not None:
+                time.sleep(2)
+                driver.refresh()
             print(e, "In parse all items")
             time.sleep(delay_time_in_s)
 
-    val = _parse_individual_page(content)
+    val = _parse_individual_page(driver.page_source)
     if pages_number > 1 and val != "Already parsed":
         for page in range(2, pages_number + 1):
             driver.get(f"{url}?page={page}")

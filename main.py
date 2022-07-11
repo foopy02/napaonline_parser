@@ -29,8 +29,8 @@ def main():
             get_main_url(driver=driver)
             select_auto(year=2015, make="Ford", model="1_28_14_2015", driver=driver)
             break
-        except:
-            print("Error with getting base url")
+        except Exception as e:
+            print("Error with getting base url", e)
             time.sleep(3)
             continue
 
@@ -64,8 +64,7 @@ def main():
                 
                 for concrete_category in concrete_categories:
                     driver.get(f'{BASE_URL}/{concrete_category}')
-                    time.sleep(12)
-                    parse_all_items_of_category(driver.page_source, driver)
+                    parse_all_items_of_category( driver)
             print("GOT PAGE")
 
     
