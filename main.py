@@ -24,25 +24,16 @@ def main():
 
     # Adding pause to not get the WebDriverException
     time.sleep(2)
-    driver.get(BASE_URL)
-    try:
-        myElem = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'add-vehicle')))
-    except TimeoutException:
-        print("Loading took too much time!")
-    #Finding button that add vehicle
     while True:
         try:
-            add_new_vehicle_btn = driver.find_element_by_id("add-vehicle")
-            add_new_vehicle_btn.click()
+            get_main_url(driver=driver)
+            select_auto(year=2015, make="Ford", model="1_28_14_2015", driver=driver)
             break
         except:
-            print("Can't find add-vehicle button")
+            print("Error with getting base url")
+            time.sleep(3)
             continue
-        
 
-    time.sleep(3)
-
-    select_auto(year=2015, make="Ford", model="1_28_14_2015", driver=driver)
 
 
     for i in get_all_main_products_links(driver.page_source):
@@ -93,6 +84,26 @@ def find_and_press_selection(element_id, data_value, driver):
     select_of.click()
     selection_of_concrete = driver.find_element_by_xpath(f"//*[@data-value='{data_value}']")
     selection_of_concrete.click()
+
+def get_main_url(driver):
+    driver.get(BASE_URL)
+    try:
+        myElem = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'add-vehicle')))
+    except TimeoutException:
+        print("Loading took too much time!")
+    #Finding button that add vehicle
+    while True:
+        try:
+            add_new_vehicle_btn = driver.find_element_by_id("add-vehicle")
+            add_new_vehicle_btn.click()
+            break
+        except:
+            print("Can't find add-vehicle button")
+            time.sleep(3)
+            continue
+        
+
+    time.sleep(3)
 
 if __name__ == "__main__":
     main()
