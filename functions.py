@@ -139,7 +139,7 @@ def _parse_individual_page(content):
                     part_number=number,
                     url=url,
                     image_url=image_url,
-                    price=price
+                    price=price.replace("/ Each", "")
                 )
                 product.save()
     else:
