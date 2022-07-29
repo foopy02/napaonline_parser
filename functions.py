@@ -8,6 +8,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 
+
+
+
 BASE_URL = "https://www.napaonline.com"
 PROGRESS_LIST_PATH = "progress.json"
 delay_time_in_s = 3
@@ -41,7 +44,7 @@ def get_concrete_categories_links(content):
             time.sleep(delay_time_in_s)
 
 
-def parse_all_items_of_category(driver):
+def parse_all_items_of_category(driver, last_item, info):
     time.sleep(delay_time_in_s)
     check_engine = None
     while True:
@@ -56,6 +59,11 @@ def parse_all_items_of_category(driver):
             pages_number = 1
             time.sleep(delay_time_in_s)
             continue
+    if last_item is not None:
+        stopped_page = last_item[-1] + 1
+        last_item = None
+    else:
+        stopped_page = 1
     while True:
         try:
             soup = BeautifulSoup(driver.page_source,"html.parser")
@@ -71,15 +79,14 @@ def parse_all_items_of_category(driver):
             print(e, "In parse all items")
             time.sleep(delay_time_in_s)
 
-    val = _parse_individual_page(driver.page_source)
-    if pages_number > 1 and val != "Already parsed":
-        for page in range(2, pages_number + 1):
+    # val = _parse_individual_page(driver.page_source)
+    if pages_number > 1:
+        for page in range(stopped_page, pages_number + 1):
             driver.get(f"{url}?page={page}")
             no_res = None
             check_engine = None
-            time.sleep(delay_time_in_s)
-
-            while True:
+            apache_not_found = None
+            for i in range(10):
                 try:
                     soup = BeautifulSoup(driver.page_source,"html.parser")
                     _get_part_price(soup)
@@ -88,65 +95,90 @@ def parse_all_items_of_category(driver):
                 except Exception as e:
                     print(e, "IN PARSING")
                     time.sleep(delay_time_in_s)
+                    apache_not_found = soup.find("h1")
+                    if apache_not_found is not None and apache_not_found.text == "HTTP Status 404 – Not Found":
+                        apache_not_found = apache_not_found
 
+                        
                     no_res = soup.find("geo-no-result-page")
                     check_engine = soup.find("a",{"class":"know-blog-btn"})
-                    if no_res is not None or check_engine is not None:
+                    if no_res is not None or check_engine is not None or apache_not_found is not None:
                         break
 
-            if no_res is None and check_engine is None:
-                time.sleep(delay_time_in_s)
-                _parse_individual_page(driver.page_source)
+            if no_res is None and check_engine is None and apache_not_found is None:
+                info['page'] = page
+                _parse_individual_page(driver, info)
                 print(f"PAGE {page} DONE!")
             else:
-                continue
+                try:
+                    driver.refresh()
+                    time.sleep(delay_time_in_s)
+                    info['page'] = page
+                    _parse_individual_page(driver, info)
+                    print(f"PAGE {page} DONE!")
+                except Exception as e:
+                    print(f"Имеется ошибка на страницу {page} - ", e)
+                    continue
         
 
-def _parse_individual_page(content):
-    first_soup = BeautifulSoup(content, "html.parser")
+def _parse_individual_page(driver, info):
     category = None
+    first_soup = BeautifulSoup(driver.page_source, "html.parser")
     for i in range(10):
         try:
+            first_soup = BeautifulSoup(driver.page_source, "html.parser")
             category = _get_category_path(first_soup)
             break
         except Exception as e:
             print(e)
             pass
-    progress = json.load(open(PROGRESS_LIST_PATH, encoding="utf8"))
-    if category not in progress:
-        print(f"Parsing {category}")
-        for item in  _get_all_elements_on_page(first_soup):
-            if item is not None:
-                soup  = BeautifulSoup(str(item), "html.parser")
-                price = None
-                
-                name = _get_part_name(soup)
-                number = _get_part_number(soup)
-                url = _get_part_url(soup)
-                image_url = _get_part_image_url(soup)
-                
-                for i in range(10):
-                    try:
-                        price = _get_part_price(soup)
-                        break
-                    except Exception as e:
-                        print(e)
-                        pass
-                        
-                product = Product(
-                    category=category,
-                    name=name,
-                    part_number=number,
-                    url=url,
-                    image_url=image_url,
-                    price=price.replace("/ Each", "")
-                )
-                product.save()
-    else:
-        return "Already parsed"
-def _get_all_elements_on_page(soup=BeautifulSoup):
+    print(f"Parsing {category}")
+    for item in  _get_all_elements_on_page(driver):
+        if item is not None:
+            soup  = BeautifulSoup(str(item), "html.parser")
+            price = None
+            
+            name = _get_part_name(soup)
+            number = _get_part_number(soup)
+            url = _get_part_url(soup)
+            image_url = _get_part_image_url(soup)
+            
+            for i in range(10):
+                try:
+                    price = _get_part_price(soup)
+                    break
+                except Exception as e:
+                    print(e)
+                    time.sleep(delay_time_in_s)
+                    pass
+            if price is None:
+                print("Нет цены на каком то предмете, перезагружаю страницу")
+                driver.refresh()
+                time.sleep(3)
+                _parse_individual_page(driver, info)
+            product = Product(
+                year = info['year'],
+                make = info['make'],
+                model = info['model'],
+                category = category,
+                name = name,
+                part_number = number,
+                url = url,
+                image_url = image_url,
+                price = price,
+                main_category = info['main_category'],
+                category_0 = info['category_0'],
+                category_1 = info['category_1'],
+                category_2 = info['category_2'],
+                page = info['page']
+            )
+            product.save()
+
+def _get_all_elements_on_page(driver):
+    time.sleep(2)
     for i in range(10):
         try:
+            soup = BeautifulSoup(driver.page_source, "html.parser")
             return soup.find("geo-search-results",{"class":"hydrated"}).find_all("geo-product-list-item")
         except:
             print("Error on get_all_elements_on_page ")
@@ -178,7 +210,10 @@ def _get_part_image_url(soup=BeautifulSoup):
 
 
 def _get_part_price(soup=BeautifulSoup):
-    return soup.find("div",{"class":"geo-pod-price-cost"}).text.replace('$','')
+    if soup.find("div", {"class": "geo-no-priceavailable"}) is not None:
+        return "Not available"
+    return soup.find("div",{"class":"geo-pod-price-cost"}).text.replace('$','').replace("/ Each", "")
+
 
 
 def save_parsed_categories(category):
